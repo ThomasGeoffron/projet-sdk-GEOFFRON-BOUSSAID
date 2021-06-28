@@ -1,9 +1,5 @@
 FROM php:7.4-fpm-alpine
 
-RUN apk add --no-cache autoconf openssl-dev g++ make pcre-dev icu-dev zlib-dev libzip-dev && \
-    docker-php-ext-install bcmath intl opcache zip sockets && \
-    apk del --purge autoconf g++ make && \
-    mv "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
 WORKDIR /home/root
 

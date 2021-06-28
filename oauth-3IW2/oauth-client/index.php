@@ -11,7 +11,7 @@ function handleLogin()
     echo "<a href='http://localhost:8081/auth?response_type=code"
         . "&client_id=" . CLIENT_ID
         . "&scope=basic"
-        . "&state=" . STATE . "'>Se connecter avec Oauth Server</a>";
+        . "&state=" . STATE . "'>Se connecter avec Oauth Server</a>&nbsp";
     echo "<a href='https://www.facebook.com/v2.10/dialog/oauth?response_type=code"
         . "&client_id=" . CLIENT_FBID
         . "&scope=email"
