@@ -1,17 +1,17 @@
 <?php
-const CLIENT_ID = "client_60a3778e70ef02.05413444";
+const CLIENT_ID = "234218832452-vchpu8079urgcmp9askc6cum5oej4au1.apps.googleusercontent.com";
 const CLIENT_FBID = "3648086378647793";
-const CLIENT_SECRET = "cd989e9a4b572963e23fe39dc14c22bbceda0e60";
+const CLIENT_SECRET = "ZlOPVwl1-V39Cc_1OlGx5p8Y";
 const CLIENT_FBSECRET = "1b5d764e7a527c2b816259f575a59942";
 const STATE = "fdzefzefze";
 function handleLogin()
 {
     // http://.../auth?response_type=code&client_id=...&scope=...&state=...
     echo "<h1>Login with OAUTH</h1>";
-    echo "<a href='http://localhost:8081/auth?response_type=code"
+    echo "<a href='https://accounts.google.com/o/oauth2/v2/auth?redirect_uri=http://localhost/handle-redirect&response_type=code"
         . "&client_id=" . CLIENT_ID
-        . "&scope=basic"
-        . "&state=" . STATE . "'>Se connecter avec Oauth Server</a>&nbsp";
+        . "&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email"
+        . "&access_type=offline'>Se connecter avec Oauth Server</a>&nbsp";
     echo "<a href='https://www.facebook.com/v2.10/dialog/oauth?response_type=code"
         . "&client_id=" . CLIENT_FBID
         . "&scope=email"
@@ -27,7 +27,8 @@ function handleError()
 
 function handleSuccess()
 {
-    ["state" => $state, "code" => $code] = $_GET;
+    echo 'salut';
+    /*["state" => $state, "code" => $code] = $_GET;
     if ($state !== STATE) {
         throw new RuntimeException("{$state} : invalid state");
     }
@@ -35,7 +36,26 @@ function handleSuccess()
     getUser([
         'grant_type' => "authorization_code",
         "code" => $code,
-    ]);
+    ]);*/
+}
+
+function handleRedirect() {
+    if (isset($_GET['code'])) {
+
+        $url = "https://oauth2.googleapis.com/token?"
+            . "code=" . $_GET['code']
+            . "&client_id=" . CLIENT_ID
+            . "&client_secret=" . CLIENT_SECRET
+            . "&redirect_uri=http://localhost/auth-success"
+            . "&grant_type=authorization_code";
+
+
+        header('Location: ' . $url);
+
+    } else {
+        echo 'no';
+    }
+
 }
 
 function handleFbSuccess()
@@ -88,6 +108,9 @@ switch ($route) {
         break;
     case '/auth-success':
         handleSuccess();
+        break;
+    case '/handle-redirect':
+        handleRedirect();
         break;
     case '/fbauth-success':
         handleFbSuccess();
