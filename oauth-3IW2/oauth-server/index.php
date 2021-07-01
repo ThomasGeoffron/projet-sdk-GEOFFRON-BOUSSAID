@@ -186,9 +186,6 @@ switch ($route) {
     case '/auth':
         auth();
         break;
-    case '/auth-success':
-        handleAuth(true);
-        break;
     case '/auth-failed':
         handleAuth(false);
         break;

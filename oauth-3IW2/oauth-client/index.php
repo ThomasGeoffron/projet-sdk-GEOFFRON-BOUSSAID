@@ -1,22 +1,53 @@
 <?php
 const CLIENT_ID = "234218832452-vchpu8079urgcmp9askc6cum5oej4au1.apps.googleusercontent.com";
-const CLIENT_FBID = "3648086378647793";
+const CLIENT_FBID = "833520570874883";
 const CLIENT_SECRET = "ZlOPVwl1-V39Cc_1OlGx5p8Y";
-const CLIENT_FBSECRET = "1b5d764e7a527c2b816259f575a59942";
+const CLIENT_FBSECRET = "b06369b622b8f673d9486f92eb357145";
 const STATE = "fdzefzefze";
+
+session_start();
 function handleLogin()
 {
+    $_SESSION['state'] = uniqid();
     // http://.../auth?response_type=code&client_id=...&scope=...&state=...
-    echo "<h1>Login with OAUTH</h1>";
-    echo "<a href='https://accounts.google.com/o/oauth2/v2/auth?redirect_uri=http://localhost/handle-redirect&response_type=code"
-        . "&client_id=" . CLIENT_ID
-        . "&scope=https%3A%2F%2Fwww.googleapis.com%2Fauth%2Fuserinfo.email"
-        . "&access_type=offline'>Se connecter avec Oauth Server</a>&nbsp";
+
+    $urlGoogle = "https://accounts.google.com/o/oauth2/v2/auth?"
+        . http_build_query([
+            'redirect_uri' => 'https://localhost/redirect-google',
+            'response_type' => 'code',
+            'client_id' => CLIENT_ID,
+            'scope' => 'https://www.googleapis.com/auth/userinfo.email',
+            'state' => $_SESSION['state'],
+            'access_type' => 'offline'
+        ]);
+
+    $urlFB = "";
+    $urlDiscord = "";
+    $urlMicrosoft = "";
+
+    echo "<h1>Login with :</h1>";
+    echo "<a href='". $urlGoogle ."'><img src='http://assets.stickpng.com/thumbs/5847f9cbcef1014c0b5e48c8.png' width='50px' height='50px'></a>";
     echo "<a href='https://www.facebook.com/v2.10/dialog/oauth?response_type=code"
         . "&client_id=" . CLIENT_FBID
         . "&scope=email"
-        . "&state=" . STATE
-        . "&redirect_uri=https://localhost/fbauth-success'>Se connecter avec Facebook</a>";
+        . "&state=" . $_SESSION['state']
+        . "&redirect_uri=https://localhost/fbauth-success'><img src='http://assets.stickpng.com/thumbs/584ac2d03ac3a570f94a666d.png' width='50px' height='50px'></a>";
+    echo "<a href='https://www.facebook.com/v2.10/dialog/oauth?response_type=code"
+        . "&client_id=" . CLIENT_FBID
+        . "&scope=email"
+        . "&state=" . $_SESSION['state']
+        . "&redirect_uri=https://localhost/fbauth-success'><img src='https://www.freepnglogos.com/uploads/discord-logo-png/concours-discord-cartes-voeux-fortnite-france-6.png' width='50px' height='50px'></a>";
+    echo "<a href='https://www.facebook.com/v2.10/dialog/oauth?response_type=code"
+        . "&client_id=" . CLIENT_FBID
+        . "&scope=email"
+        . "&state=" . $_SESSION['state']
+        . "&redirect_uri=https://localhost/fbauth-success'><img src='https://flowerdocs.com/img/documentation/microsoft.png' width='50px' height='50px'></a>";
+
+    if (isset($_SESSION['google_user'])) {
+        echo '<h2>Salut ' . $_SESSION['google_user'] . " !</h2>";
+
+        echo "<a href='/disconnect'>Deconnexion</a>";
+    }
 }
 
 function handleError()
@@ -42,15 +73,50 @@ function handleSuccess()
 function handleRedirect() {
     if (isset($_GET['code'])) {
 
-        $url = "https://oauth2.googleapis.com/token?"
-            . "code=" . $_GET['code']
-            . "&client_id=" . CLIENT_ID
-            . "&client_secret=" . CLIENT_SECRET
-            . "&redirect_uri=http://localhost/auth-success"
-            . "&grant_type=authorization_code";
+        $httpquery = http_build_query([
+            'redirect_uri' => 'https://localhost/redirect-google',
+            'client_id' => CLIENT_ID,
+            'client_secret' => CLIENT_SECRET,
+            'code' => $_GET['code'],
+            'grant_type' => 'authorization_code']);
 
+        $url = "https://oauth2.googleapis.com/token?" . $httpquery;
 
-        header('Location: ' . $url);
+        $context = stream_context_create([
+            'http' => [
+                'method' => 'POST',
+                'user_agent' => 'Google OAuth Client',
+                'header' => 'Accept: application/json\r\n' .
+                    'Content-type: application/x-www-form-urlencoded\r\n' .
+                    'Content-Length: '.strlen($httpquery) . '\r\n',
+                'content' => $httpquery
+            ]
+        ]);
+
+        $response = file_get_contents($url, false, $context);
+        $response = $response ? json_decode($response) : $response;
+        $accessToken = $response->access_token ?? false;
+
+        if ($accessToken) {
+
+            $url = "https://www.googleapis.com/oauth2/v2/userinfo";
+
+            $context = stream_context_create([
+                'http' => [
+                    'method' => 'GET',
+                    'header' => [
+                        'Authorization: Bearer ' . $accessToken,
+                    ]
+                ]
+            ]);
+
+            $user = json_decode(file_get_contents($url, false, $context));
+
+            $_SESSION['google_user'] = $user->email;
+
+            header('Location: /login');
+        }
+        die();
 
     } else {
         echo 'no';
@@ -109,7 +175,7 @@ switch ($route) {
     case '/auth-success':
         handleSuccess();
         break;
-    case '/handle-redirect':
+    case '/redirect-google':
         handleRedirect();
         break;
     case '/fbauth-success':
@@ -133,6 +199,10 @@ switch ($route) {
                 "password" => $password
             ]);
         }
+        break;
+    case '/disconnect':
+        session_destroy();
+        header('Location: /login');
         break;
     default:
         http_response_code(404);
