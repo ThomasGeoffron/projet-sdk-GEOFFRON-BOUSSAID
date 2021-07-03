@@ -1,8 +1,8 @@
 <?php
 const CLIENT_ID = "234218832452-vchpu8079urgcmp9askc6cum5oej4au1.apps.googleusercontent.com";
-const CLIENT_FBID = "833520570874883";
 const CLIENT_SECRET = "ZlOPVwl1-V39Cc_1OlGx5p8Y";
-const CLIENT_FBSECRET = "b06369b622b8f673d9486f92eb357145";
+const CLIENT_FBID = "4117744681651255";
+const CLIENT_FBSECRET = "754f0d9bfb888e92a6a72450ce95c66f";
 const STATE = "fdzefzefze";
 
 session_start();
@@ -21,17 +21,18 @@ function handleLogin()
             'access_type' => 'offline'
         ]);
 
-    $urlFB = "";
+    $urlFB = "https://www.facebook.com/v11.0/dialog/oauth?"
+        . http_build_query([
+            'client_id' => CLIENT_FBID,
+            'redirect_uri' => 'https://localhost/redirect-fb',
+            'state' => $_SESSION['state']
+        ]);
     $urlDiscord = "";
     $urlMicrosoft = "";
 
     echo "<h1>Login with :</h1>";
     echo "<a href='". $urlGoogle ."'><img src='http://assets.stickpng.com/thumbs/5847f9cbcef1014c0b5e48c8.png' width='50px' height='50px'></a>";
-    echo "<a href='https://www.facebook.com/v2.10/dialog/oauth?response_type=code"
-        . "&client_id=" . CLIENT_FBID
-        . "&scope=email"
-        . "&state=" . $_SESSION['state']
-        . "&redirect_uri=https://localhost/fbauth-success'><img src='http://assets.stickpng.com/thumbs/584ac2d03ac3a570f94a666d.png' width='50px' height='50px'></a>";
+    echo "<a href='". $urlFB ."'><img src='http://assets.stickpng.com/thumbs/584ac2d03ac3a570f94a666d.png' width='50px' height='50px'></a>";
     echo "<a href='https://www.facebook.com/v2.10/dialog/oauth?response_type=code"
         . "&client_id=" . CLIENT_FBID
         . "&scope=email"
@@ -48,6 +49,11 @@ function handleLogin()
 
         echo "<a href='/disconnect'>Deconnexion</a>";
     }
+    if (isset($_SESSION['fb_user'])) {
+        echo '<h2>Salut ' . $_SESSION['fb_user'] . " !</h2>";
+
+        echo "<a href='/disconnect'>Deconnexion</a>";
+    }
 }
 
 function handleError()
@@ -56,21 +62,7 @@ function handleError()
     echo "{$state} : Request cancelled";
 }
 
-function handleSuccess()
-{
-    echo 'salut';
-    /*["state" => $state, "code" => $code] = $_GET;
-    if ($state !== STATE) {
-        throw new RuntimeException("{$state} : invalid state");
-    }
-    // https://auth-server/token?grant_type=authorization_code&code=...&client_id=..&client_secret=...
-    getUser([
-        'grant_type' => "authorization_code",
-        "code" => $code,
-    ]);*/
-}
-
-function handleRedirect() {
+function redirectGoogle() {
     if (isset($_GET['code'])) {
 
         $httpquery = http_build_query([
@@ -95,9 +87,9 @@ function handleRedirect() {
 
         $response = file_get_contents($url, false, $context);
         $response = $response ? json_decode($response) : $response;
-        $accessToken = $response->access_token ?? false;
+        $accessTokenGoogle = $response->access_token ?? false;
 
-        if ($accessToken) {
+        if ($accessTokenGoogle) {
 
             $url = "https://www.googleapis.com/oauth2/v2/userinfo";
 
@@ -105,7 +97,7 @@ function handleRedirect() {
                 'http' => [
                     'method' => 'GET',
                     'header' => [
-                        'Authorization: Bearer ' . $accessToken,
+                        'Authorization: Bearer ' . $accessTokenGoogle,
                     ]
                 ]
             ]);
@@ -124,9 +116,49 @@ function handleRedirect() {
 
 }
 
-function handleFbSuccess()
+function redirectFb()
 {
-    ["state" => $state, "code" => $code] = $_GET;
+    $url = "https://graph.facebook.com/v11.0/oauth/access_token?" . http_build_query([
+        'client_id' => CLIENT_FBID,
+        'redirect_uri' => 'https://localhost/redirect-fb',
+        'client_secret' => CLIENT_FBSECRET,
+        'code' => $_GET['code'],
+        'grant_type' => 'authorization_code']);
+
+    $context = stream_context_create([
+        'http' => [
+            'method' => 'GET',
+            'header' => 'Accept: application/json\r\n'
+                . 'Content-type: application/x-www-form-urlencoded\r\n'
+        ]
+    ]);
+
+    $response = file_get_contents($url, false, $context);
+    $response = $response ? json_decode($response) : $response;
+    $accessTokenFb = $response->access_token ?? false;
+
+    if ($accessTokenFb) {
+
+        $url = "https://graph.facebook.com/me?scope=email";
+
+        $context = stream_context_create([
+            'http' => [
+                'method' => 'GET',
+                'header' => [
+                    'Authorization: Bearer ' . $accessTokenFb,
+                ]
+            ]
+        ]);
+
+        $user = json_decode(file_get_contents($url, false, $context));
+
+        $_SESSION['fb_user'] = $user->name;
+
+        header('Location: /login');
+
+    }
+
+    /*["state" => $state, "code" => $code] = $_GET;
     if ($state !== STATE) {
         throw new RuntimeException("{$state} : invalid state");
     }
@@ -141,7 +173,7 @@ function handleFbSuccess()
             'header' => 'Authorization: Bearer ' . $token
         ]
     ]);
-    echo file_get_contents($userUrl, false, $context);
+    echo file_get_contents($userUrl, false, $context);*/
 }
 
 function getUser($params)
@@ -176,10 +208,10 @@ switch ($route) {
         handleSuccess();
         break;
     case '/redirect-google':
-        handleRedirect();
+        redirectGoogle();
         break;
-    case '/fbauth-success':
-        handleFbSuccess();
+    case '/redirect-fb':
+        redirectFb();
         break;
     case '/auth-cancel':
         handleError();
