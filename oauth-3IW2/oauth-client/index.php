@@ -129,44 +129,45 @@ function redirectGoogle() {
 
 function redirectFb()
 {
-    $url = "https://graph.facebook.com/v11.0/oauth/access_token?" . http_build_query([
-        'client_id' => CLIENT_FBID,
-        'redirect_uri' => 'https://localhost/redirect-fb',
-        'client_secret' => CLIENT_FBSECRET,
-        'code' => $_GET['code'],
-        'grant_type' => 'authorization_code']);
-
-    $context = stream_context_create([
-        'http' => [
-            'method' => 'GET',
-            'header' => 'Accept: application/json\r\n'
-                . 'Content-type: application/x-www-form-urlencoded\r\n'
-        ]
-    ]);
-
-    $response = file_get_contents($url, false, $context);
-    $response = $response ? json_decode($response) : $response;
-    $accessTokenFb = $response->access_token ?? false;
-
-    if ($accessTokenFb) {
-
-        $url = "https://graph.facebook.com/me?scope=email";
+    if (isset($_GET['code'])) {$url = "https://graph.facebook.com/v11.0/oauth/access_token?" . http_build_query([
+            'client_id' => CLIENT_FBID,
+            'redirect_uri' => 'https://localhost/redirect-fb',
+            'client_secret' => CLIENT_FBSECRET,
+            'code' => $_GET['code'],
+            'grant_type' => 'authorization_code']);
 
         $context = stream_context_create([
             'http' => [
                 'method' => 'GET',
-                'header' => [
-                    'Authorization: Bearer ' . $accessTokenFb,
-                ]
+                'header' => 'Accept: application/json\r\n'
+                    . 'Content-type: application/x-www-form-urlencoded\r\n'
             ]
         ]);
 
-        $user = json_decode(file_get_contents($url, false, $context));
+        $response = file_get_contents($url, false, $context);
+        $response = $response ? json_decode($response) : $response;
+        $accessTokenFb = $response->access_token ?? false;
 
-        $_SESSION['fb_user'] = $user->name;
+        if ($accessTokenFb) {
 
-        header('Location: /login');
+            $url = "https://graph.facebook.com/me?scope=email";
 
+            $context = stream_context_create([
+                'http' => [
+                    'method' => 'GET',
+                    'header' => [
+                        'Authorization: Bearer ' . $accessTokenFb,
+                    ]
+                ]
+            ]);
+
+            $user = json_decode(file_get_contents($url, false, $context));
+
+            $_SESSION['fb_user'] = $user->name;
+
+            header('Location: /login');
+
+        }
     } else {
         header('Location: /auth-cancel');
     }
