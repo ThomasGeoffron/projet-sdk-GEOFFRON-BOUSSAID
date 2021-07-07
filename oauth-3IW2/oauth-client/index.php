@@ -1,77 +1,250 @@
 <?php
-const CLIENT_ID = "client_60a3778e70ef02.05413444";
-const CLIENT_FBID = "3648086378647793";
-const CLIENT_SECRET = "cd989e9a4b572963e23fe39dc14c22bbceda0e60";
-const CLIENT_FBSECRET = "1b5d764e7a527c2b816259f575a59942";
+const CLIENT_ID = "234218832452-vchpu8079urgcmp9askc6cum5oej4au1.apps.googleusercontent.com";
+const CLIENT_SECRET = "ZlOPVwl1-V39Cc_1OlGx5p8Y";
+const CLIENT_FBID = "4117744681651255";
+const CLIENT_FBSECRET = "754f0d9bfb888e92a6a72450ce95c66f";
+const CLIENT_MICID = "81747747-54c6-4870-baa4-cb5955218b77";
+const CLIENT_MICSECRET = "SC~7MYQ8.pFWD6X9o-1hTpY0_zSlW4y214";
+const CLIENT_DISCID = "859140595465191454";
+const CLIENT_DISCSECRET="kugLHpTfWYFpTIQlqWYSeXbNFSogdHLv";
 const STATE = "fdzefzefze";
+
+session_start();
 function handleLogin()
 {
+    $_SESSION['state'] = uniqid();
     // http://.../auth?response_type=code&client_id=...&scope=...&state=...
-    echo "<h1>Login with OAUTH</h1>";
-    echo "<a href='http://localhost:8081/auth?response_type=code"
-        . "&client_id=" . CLIENT_ID
-        . "&scope=basic"
-        . "&state=" . STATE . "'>Se connecter avec Oauth Server</a>";
+
+    $urlGoogle = "https://accounts.google.com/o/oauth2/v2/auth?"
+        . http_build_query([
+            'redirect_uri' => 'https://localhost/redirect-google',
+            'response_type' => 'code',
+            'client_id' => CLIENT_ID,
+            'scope' => 'https://www.googleapis.com/auth/userinfo.email',
+            'state' => $_SESSION['state'],
+            'access_type' => 'offline'
+        ]);
+
+    $urlFB = "https://www.facebook.com/v11.0/dialog/oauth?"
+        . http_build_query([
+            'client_id' => CLIENT_FBID,
+            'redirect_uri' => 'https://localhost/redirect-fb',
+            'state' => $_SESSION['state']
+        ]);
+    $urlDiscord = "https://discord.com/api/oauth2/authorize?".http_build_query([
+            'redirect_uri' => 'https://localhost/redirect-discord',
+            'response_type' => 'code',
+            'client_id' => CLIENT_DISCID,
+            'scope' => 'scope=email%20identify',
+            'state' => $_SESSION['state']
+        ]);
+    $urlMicrosoft = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?"
+        . http_build_query([
+            'redirect_uri' => 'https://localhost/redirect-microsoft',
+            'response_type' => 'code',
+            'client_id' => CLIENT_MICID,
+            'scope' => 'https://graph.microsoft.com/user.read',
+            'state' => $_SESSION['state']
+        ]);
+
+    echo "<h1>Login with :</h1>";
+    echo "<a href='". $urlGoogle ."'><img src='http://assets.stickpng.com/thumbs/5847f9cbcef1014c0b5e48c8.png' width='50px' height='50px'></a>";
+    echo "<a href='". $urlFB ."'><img src='http://assets.stickpng.com/thumbs/584ac2d03ac3a570f94a666d.png' width='50px' height='50px'></a>";
     echo "<a href='https://www.facebook.com/v2.10/dialog/oauth?response_type=code"
         . "&client_id=" . CLIENT_FBID
         . "&scope=email"
-        . "&state=" . STATE
-        . "&redirect_uri=https://localhost/fbauth-success'>Se connecter avec Facebook</a>";
+        . "&state=" . $_SESSION['state']
+        . "&redirect_uri=https://localhost/fbauth-success'><img src='https://www.freepnglogos.com/uploads/discord-logo-png/concours-discord-cartes-voeux-fortnite-france-6.png' width='50px' height='50px'></a>";
+    echo "<a href='". $urlMicrosoft ."'><img src='https://flowerdocs.com/img/documentation/microsoft.png' width='50px' height='50px'></a>";
+
+    if (isset($_SESSION['google_user'])) {
+        echo '<h2>Salut ' . $_SESSION['google_user'] . " !</h2>";
+
+        echo "<a href='/disconnect'>Deconnexion</a>";
+    }
+    if (isset($_SESSION['fb_user'])) {
+        echo '<h2>Salut ' . $_SESSION['fb_user'] . " !</h2>";
+
+        echo "<a href='/disconnect'>Deconnexion</a>";
+    }
+    if (isset($_SESSION['mic_user'])) {
+        echo '<h2>Salut ' . $_SESSION['mic_user'] . " !</h2>";
+
+        echo "<a href='/disconnect'>Deconnexion</a>";
+    }
+    if (isset($_SESSION['disc_user'])) {
+        echo '<h2>Salut ' . $_SESSION['disc_user'] . " !</h2>";
+
+        echo "<a href='/disconnect'>Deconnexion</a>";
+    }
 }
 
 function handleError()
 {
     ["state" => $state] = $_GET;
-    echo "{$state} : Request cancelled";
+    echo $state . " : Request cancelled";
+    echo "<a href='/login'>Accueil</a>";
 }
 
-function handleSuccess()
-{
-    ["state" => $state, "code" => $code] = $_GET;
-    if ($state !== STATE) {
-        throw new RuntimeException("{$state} : invalid state");
+function redirectGoogle() {
+    if (isset($_GET['code'])) {
+
+        $httpquery = http_build_query([
+            'redirect_uri' => 'https://localhost/redirect-google',
+            'client_id' => CLIENT_ID,
+            'client_secret' => CLIENT_SECRET,
+            'code' => $_GET['code'],
+            'grant_type' => 'authorization_code']);
+
+        $url = "https://oauth2.googleapis.com/token?" . $httpquery;
+
+        $context = stream_context_create([
+            'http' => [
+                'method' => 'POST',
+                'user_agent' => 'Google OAuth Client',
+                'header' => 'Accept: application/json\r\n' .
+                    'Content-type: application/x-www-form-urlencoded\r\n' .
+                    'Content-Length: '.strlen($httpquery) . '\r\n',
+                'content' => $httpquery
+            ]
+        ]);
+
+        $response = file_get_contents($url, false, $context);
+        $response = $response ? json_decode($response) : $response;
+        $accessTokenGoogle = $response->access_token ?? false;
+
+        if ($accessTokenGoogle) {
+
+            $url = "https://www.googleapis.com/oauth2/v2/userinfo";
+
+            $context = stream_context_create([
+                'http' => [
+                    'method' => 'GET',
+                    'header' => [
+                        'Authorization: Bearer ' . $accessTokenGoogle,
+                    ]
+                ]
+            ]);
+
+            $user = json_decode(file_get_contents($url, false, $context));
+
+            $_SESSION['google_user'] = $user->email;
+
+            header('Location: /login');
+        }
+        die();
+
+    } else {
+        header('Location: /auth-cancel');
     }
-    // https://auth-server/token?grant_type=authorization_code&code=...&client_id=..&client_secret=...
-    getUser([
-        'grant_type' => "authorization_code",
-        "code" => $code,
-    ]);
+
 }
 
-function handleFbSuccess()
+function redirectFb()
 {
-    ["state" => $state, "code" => $code] = $_GET;
-    if ($state !== STATE) {
-        throw new RuntimeException("{$state} : invalid state");
+    if (isset($_GET['code'])) {$url = "https://graph.facebook.com/v11.0/oauth/access_token?" . http_build_query([
+            'client_id' => CLIENT_FBID,
+            'redirect_uri' => 'https://localhost/redirect-fb',
+            'client_secret' => CLIENT_FBSECRET,
+            'code' => $_GET['code'],
+            'grant_type' => 'authorization_code']);
+
+        $context = stream_context_create([
+            'http' => [
+                'method' => 'GET',
+                'header' => 'Accept: application/json\r\n'
+                    . 'Content-type: application/x-www-form-urlencoded\r\n'
+            ]
+        ]);
+
+        $response = file_get_contents($url, false, $context);
+        $response = $response ? json_decode($response) : $response;
+        $accessTokenFb = $response->access_token ?? false;
+
+        if ($accessTokenFb) {
+
+            $url = "https://graph.facebook.com/me?scope=email";
+
+            $context = stream_context_create([
+                'http' => [
+                    'method' => 'GET',
+                    'header' => [
+                        'Authorization: Bearer ' . $accessTokenFb,
+                    ]
+                ]
+            ]);
+
+            $user = json_decode(file_get_contents($url, false, $context));
+
+            $_SESSION['fb_user'] = $user->name;
+
+            header('Location: /login');
+
+        }
+    } else {
+        header('Location: /auth-cancel');
     }
-    // https://auth-server/token?grant_type=authorization_code&code=...&client_id=..&client_secret=...
-    $url = "https://graph.facebook.com/oauth/access_token?grant_type=authorization_code&code={$code}&client_id=" . CLIENT_FBID . "&client_secret=" . CLIENT_FBSECRET."&redirect_uri=https://localhost/fbauth-success";
-    $result = file_get_contents($url);
-    $resultDecoded = json_decode($result, true);
-    ["access_token"=> $token] = $resultDecoded;
-    $userUrl = "https://graph.facebook.com/me?fields=id,name,email";
-    $context = stream_context_create([
-        'http' => [
-            'header' => 'Authorization: Bearer ' . $token
-        ]
-    ]);
-    echo file_get_contents($userUrl, false, $context);
 }
 
-function getUser($params)
-{
-    $url = "http://oauth-server:8081/token?client_id=" . CLIENT_ID . "&client_secret=" . CLIENT_SECRET . "&" . http_build_query($params);
-    $result = file_get_contents($url);
-    $result = json_decode($result, true);
-    $token = $result['access_token'];
+function redirectMicrosoft() {
+    if (isset($_GET['code'])) {
+        $httpquery = http_build_query([
+            'redirect_uri' => 'https://localhost/redirect-microsoft',
+            'client_id' => CLIENT_MICID,
+            'client_secret' => CLIENT_MICSECRET,
+            'code' => $_GET['code'],
+            'grant_type' => 'authorization_code']);
 
-    $apiUrl = "http://oauth-server:8081/me";
-    $context = stream_context_create([
-        'http' => [
-            'header' => 'Authorization: Bearer ' . $token
-        ]
-    ]);
-    echo file_get_contents($apiUrl, false, $context);
+        $url = "https://login.microsoftonline.com/common/oauth2/v2.0/token?" . $httpquery;
+
+        $context = stream_context_create([
+            'http' => [
+                'method' => 'POST',
+                'user_agent' => 'Microsoft OAuth Client',
+                'header' => 'Accept: application/json\r\n' .
+                    'Content-type: application/x-www-form-urlencoded\r\n' .
+                    'Content-Length: '.strlen($httpquery) . '\r\n',
+                'content' => $httpquery
+            ]
+        ]);
+
+        $response = file_get_contents($url, false, $context);
+        $response = $response ? json_decode($response) : $response;
+        $accessTokenMicrosoft = $response->access_token ?? false;
+
+        if ($accessTokenMicrosoft) {
+            $url = "https://graph.microsoft.com/v1.0/me";
+
+            $context = stream_context_create([
+                'http' => [
+                    'method' => 'GET',
+                    'header' => [
+                        'Authorization: Bearer ' . $accessTokenMicrosoft,
+                    ]
+                ]
+            ]);
+
+            $user = json_decode(file_get_contents($url, false, $context));
+
+            $_SESSION['mic_user'] = $user->displayName;
+
+            header('Location: /login');
+        }
+    } else {
+        header('Location: /auth-cancel');
+    }
+}
+
+function redirectDiscord(){
+    if(isset($_GET['code'])){
+        $httpQuery = http_build_query([
+            'redirect_uri' => 'https://localhost/redirect-discord',
+            'client_id' => CLIENT_DISCID,
+            'client_secret' => CLIENT_DISCSECRET,
+            'code' => $_GET['code'],
+            'grant_type' => 'authorization_code']);
+         $url = 'https://discord.com/api/oauth2/token'.$httpQuery;
+    }
 }
 
 /**
@@ -86,30 +259,21 @@ switch ($route) {
     case '/login':
         handleLogin();
         break;
-    case '/auth-success':
-        handleSuccess();
+    case '/redirect-google':
+        redirectGoogle();
         break;
-    case '/fbauth-success':
-        handleFbSuccess();
+    case '/redirect-microsoft':
+        redirectMicrosoft();
+        break;
+    case '/redirect-fb':
+        redirectFb();
         break;
     case '/auth-cancel':
         handleError();
         break;
-    case '/password':
-        if ($_SERVER['REQUEST_METHOD'] === "GET") {
-            echo '<form method="POST">';
-            echo '<input name="username">';
-            echo '<input name="password">';
-            echo '<input type="submit" value="Submit">';
-            echo '</form>';
-        } else {
-            ["username" => $username, "password" => $password] = $_POST;
-            getUser([
-                'grant_type' => "password",
-                "username" => $username,
-                "password" => $password
-            ]);
-        }
+    case '/disconnect':
+        session_destroy();
+        header('Location: /login');
         break;
     default:
         http_response_code(404);
