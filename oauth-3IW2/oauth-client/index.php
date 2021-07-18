@@ -67,6 +67,10 @@ function handleLogin()
 
         echo "<a href='/disconnect'>Deconnexion</a>";
     }
+    if (isset($_SESSION['disc_user'])) {
+        echo '<h2>Salut ' . $_SESSION['disc_user'] . " !</h2>";
+        echo "<a href='/disconnect'>Deconnexion</a>";
+    }
 }
 
 function handleError()
@@ -227,6 +231,7 @@ function redirectMicrosoft() {
 
 function redirectDiscord(){
     if(isset($_GET['code'])){
+
         $httpQuery = http_build_query([
             'redirect_uri' => 'https://localhost/redirect-discord',
             'client_id' => CLIENT_DISCID,
@@ -245,10 +250,13 @@ function redirectDiscord(){
 
             ]
         ]);
+
         $response = file_get_contents($url, false, $context);
         $response = $response ? json_decode($response) : $response;
         $accessTokenDiscord = $response->access_token ?? false;
+
         if($accessTokenDiscord){
+
             $url= "https://discord.com/api/oauth2/@me";
 
             $context = stream_context_create([
@@ -259,16 +267,14 @@ function redirectDiscord(){
                     ]
                 ]
             ]);
+
             $user = json_decode(file_get_contents($url,false,$context));
 
             $_SESSION['disc_user'] =$user->user->username;
             header('Location: /login');
         }
-        ;
 
-
-
-    }else{
+    } else {
         header('Location: /auth-cancel');
     }
 
