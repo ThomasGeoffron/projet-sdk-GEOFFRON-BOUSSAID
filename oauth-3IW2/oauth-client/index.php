@@ -50,11 +50,12 @@ function handleLogin()
     echo "<h1>Login with :</h1>";
     echo "<a href='". $urlGoogle ."'><img src='http://assets.stickpng.com/thumbs/5847f9cbcef1014c0b5e48c8.png' width='50px' height='50px'></a>";
     echo "<a href='". $urlFB ."'><img src='http://assets.stickpng.com/thumbs/584ac2d03ac3a570f94a666d.png' width='50px' height='50px'></a>";
-    echo "<a href='https://www.facebook.com/v2.10/dialog/oauth?response_type=code"
-        . "&client_id=" . CLIENT_FBID
-        . "&scope=email"
+    echo "<a href='https://discord.com/api/oauth2/authorize?"
+        . "&client_id=" . CLIENT_DISCID
+        . "&scope=identify guilds"
         . "&state=" . $_SESSION['state']
-        . "&redirect_uri=https://localhost/fbauth-success'><img src='https://www.freepnglogos.com/uploads/discord-logo-png/concours-discord-cartes-voeux-fortnite-france-6.png' width='50px' height='50px'></a>";
+        . "&response_type=code"
+        . "&redirect_uri=https://localhost/redirect-discord'><img src='https://www.freepnglogos.com/uploads/discord-logo-png/concours-discord-cartes-voeux-fortnite-france-6.png' width='50px' height='50px'></a>";
     echo "<a href='". $urlMicrosoft ."'><img src='https://flowerdocs.com/img/documentation/microsoft.png' width='50px' height='50px'></a>";
 
     if (isset($_SESSION['google_user'])) {
@@ -243,8 +244,45 @@ function redirectDiscord(){
             'client_secret' => CLIENT_DISCSECRET,
             'code' => $_GET['code'],
             'grant_type' => 'authorization_code']);
-         $url = 'https://discord.com/api/oauth2/token'.$httpQuery;
+         $url = 'https://discord.com/api/oauth2/token?'.$httpQuery;
+
+        $context = stream_context_create([
+            'http' => [
+                'method' => 'POST',
+                'user_agent' => 'Discord',
+                'header' => 'Accept: application/json\r\n' .
+                    'Content-type: application/x-www-form-urlencoded\r\n' ,
+                'content' => $httpQuery
+
+            ]
+        ]);
+        $response = file_get_contents($url, false, $context);
+        $response = $response ? json_decode($response) : $response;
+        $accessTokenDiscord = $response->access_token ?? false;
+        if($accessTokenDiscord){
+               $url= "https://discord.com/api/oauth2/@me";
+
+            $context = stream_context_create([
+                'http' => [
+                    'method' => 'GET',
+                    'header' => [
+                        'Authorization: Bearer ' . $accessTokenDiscord,
+                    ]
+                ]
+            ]);
+           $user = json_decode(file_get_contents($url,false,$context));
+
+            $_SESSION['disc_user'] =$user->user->username;
+            header('Location: /login');
+        }
+    ;
+
+
+
+    }else{
+        header('Location: /auth-cancel');
     }
+
 }
 
 /**
@@ -267,6 +305,9 @@ switch ($route) {
         break;
     case '/redirect-fb':
         redirectFb();
+        break;
+    case '/redirect-discord':
+        redirectDiscord();;
         break;
     case '/auth-cancel':
         handleError();
